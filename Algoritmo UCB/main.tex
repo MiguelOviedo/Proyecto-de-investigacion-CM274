@@ -1,0 +1,139 @@
+\documentclass{article}
+\usepackage{ucs}
+\usepackage[utf8]{inputenc}
+
+\title{Algoritmo UCB}
+\author{Nelson Steven Sanabio Maldonado}
+\date{Junio 2018}
+
+\usepackage{natbib}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{mathtools}
+\usepackage{amssymb}
+\usepackage{parskip}
+\usepackage{ dsfont }
+
+
+\begin{document}
+
+\maketitle
+\section{UCB}
+\subsection{Algoritmo}
+
+La mecánica del algoritmo de confianza superior (UCB) es
+simple. En cada ronda, simplemente tiramos del brazo que tiene la estimaci\'on de recompensa emp\'irica m\'as alta hasta ese punto m\'as un t\'ermino que es inversamente
+proporcional al n\'umero de veces que se ha jugado el brazo. M\'as formalmente, defina $n_{i,t}$ como el n\'umero de veces que se ha jugado el brazo $i$ hasta el momento $t$. Defina $r_t \in [0, 1]$ ser la recompensa que observamos en el momento $t$. Define $I_t \in \{1. . . N\}$ para ser la elección del brazo en el tiempo $t$. Entonces la estimación de recompensa empírica del brazo $i$ en el tiempo $t$ es:
+\begin{gather}
+\mu_{i,t} = \frac{\sum_{s=0\colon I_s=i}^{t}r_s }{n_{i,t}}    
+\end{gather}
+
+
+UCB asigna el siguiente valor a cada brazo $i$ en cada momento $t$:$$UCB_{i,t} := \mu_{i,t} + \sqrt{\frac{ln\>t }{n_{i,t}}}$$
+El algoritmo UCB se da a continuación:
+$$ 
+\framebox{
+\begin{minipage}[b][1.2\height]%
+[t]{0.75\textwidth} \textbf{UCB}\\\\
+\textbf{Input}: $N$ brazos, número de rondas $T\geq N$\\
+\begin{enumerate}
+    \item Para $t=1 ... N$, jugar brazo $t$\\
+    \item Para $t = N+1 ... T$, juego de brazo\\
+\end{enumerate}
+$$I_t = arg_{i \in \{1...N\} } max \>UCB_{i,t-1}$$
+\end{minipage}}$$
+Tenga en cuenta que estamos asumiendo (al menos en esta formulación) que jugaremos al menos N veces. Además, estamos actualizando implícitamente nuestra estimación empírica (1) cada vez que jugamos un brazo. Observe que en el tiempo $t$, el algoritmo utiliza el $UCB_{i, t-1}$, que se puede calcular utilizando observaciones realizadas hasta el tiempo $t - 1$.
+
+En un nivel intuitivo, el término adicional $\sqrt{\frac{ln\>t}{n_{i,t}}}$ nos ayuda a evitar siempre jugar el mismo brazo sin examinar otras armas. Esto es porque a medida que $n_{i, t}$ aumenta, $UCB_{i,t}$ disminuye. Tome el ejemplo de 2 brazos: el brazo 1 con una recompensa fija de 0,25 y el brazo 2 con una recompensa de 0-1 siguiendo una distribución de Bernoulli $\pi = 0,75$. Recuerde que la estrategia codiciosa (es decir, seleccionando $arg max_{i \in \{1...N\} }\>\mu_{i,t}$) incurre en arrepentimiento lineal $R (T) = O (T)$ con probabilidad constante: con probabilidad 0.25, el brazo 2 produce recompensa 0, a que siempre seleccionaremos el brazo 1 y nunca volveremos a visitar el brazo 2. Si hacemos un seguimiento de UCB en esta situación, vemos que no tenemos este problema.
+\begin{itemize}
+    \item (t = 1) El brazo 1 se reproduce: $\mu_{1,1}=0.25$.
+    \item (t = 2) Se reproduce el brazo 2: $\mu_{2,2}=0$ (con probabilidad de 0,25 esto ocurre).
+    \item (t = 3) Se reproduce el brazo 1, porque $UCB_{1, 2} = 0.25 + \sqrt{ln\>2} \geq UCB_{2,2} = 0 + \sqrt{ln \>2}$
+    \item (t = 4) Se reproduce el brazo 2, porque $UCB_{1,3} = 0.25 + \sqrt{\frac{ln \> 3}{2}} \approx 0.9912 \>\> \textless \>\> UCB_{2,3} = 0 + \sqrt{ln \>3} \approx 1.481$
+\end{itemize}
+
+\subsection{Análisis de arrepentimiento dependiente de la instancia}
+
+Pero hay una razón más fundamental para la elección del término $\sqrt{\frac{ln \> t}{n_{i,t}}}$. Es un límite superior de alta confianza en el error empírico de $\mu_{i, t}$. Específicamente, para cada brazo $i$ en el tiempo $t$, debemos tener.
+\begin{gather}
+    |\mu_{i,t}-\mu_{i}| < \sqrt{\frac{ln\>t}{n_{i,t}}}
+\end{gather}
+
+con probabilidad de al menos $1 - \frac{2}{t^2}$. Hay dos límites útiles que podemos tomar inmediatamente de (2):
+\begin{enumerate}
+    \item Un límite inferior para $UCB_{i,t}$. Con probabilidad al menos $1 - \frac{2}{t^2}$
+    \begin{gather}
+        UCB_{i,t} > \mu_{i}
+    \end{gather}
+    \item Un límite superior para $\mu_{i,t}$ con muchas muestras. Dado que $n_{i,t} \geq \frac{4ln \>t}{\bigtriangleup^2_{i}} $, con probabilidad de al menos $1 - \frac{2}{t^2}$,
+    \begin{gather}
+        \mu_{i,t} < \mu_{i} + \frac{\bigtriangleup_i }{2}
+    \end{gather}
+\end{enumerate}
+(3) afirma que el valor UCB es probablemente tan grande como la verdadera recompensa: en este sentido, el algoritmo UCB es optimista. (4) declara que si se le dan suficientes (específicamente, al menos $\frac{4ln \>t}{\bigtriangleup^2_{i}}$) muestras, la estimación de la recompensa probablemente no exceda la recompensa verdadera en más de $\frac{\bigtriangleup_i }{2}$. Estos límites se pueden usar para mostrar que UCB rápidamente descubre un brazo subóptimo:
+
+$\textbf{Lema 1.1.}$ En cualquier punto $t$, si un brazo subóptimo $i$ (es decir, $\mu_i < \mu^*$) se ha jugado para $n_{i,t}> \frac{4 ln \> t}{\bigtriangleup ^2_i}$ veces, entonces $UCB_{i, t} <UCB_{I^*, t}$ con probabilidad de al menos $1 - \frac{4}{t^2}$. Por lo tanto, para cualquier $t$,
+\[P\left(
+I_{t+1}= i | n_{i,t}  \geq \frac{4 ln \> t}{\bigtriangleup^2_i} \right) \leq \frac{4}{t^2}
+\]
+$\textbf{Lema 1.2.}$ Deje que $n_{i, T}$ sea la cantidad de veces que el brazo $i$ es tirado por el algoritmo de UCB ejecutado en la instancia $\Theta= \{ \nu_1, \mu_1,. . . , \nu_N, \mu_N\}$ del estocástico IID multi-armado bandido prbolem. Entonces, para cualquier brazo $i$ con $\mu_i <\mu^*$,
+\[
+\mathds{E}[n_{i,T}]\leq \frac{4 ln\>T}{\bigtriangleup_i}+8
+\]
+
+\textbf{Teorema 1.3.} Deje que $R(T, \Theta)$ denote el arrepentimiento del algoritmo de UCB en el tiempo $T$, por ejemplo $\Theta= \{ \nu_1, \mu_1,. . . , \nu_N, \mu_N\}$
+del estocástico IID multi-armado bandido prbolem. Para todos los casos $\Theta$, y todos $T \geq N$, el arrepentimiento esperado del algoritmo UCB está limitado como:
+\[
+\mathds{E}[R(T, \Theta)]\leq {\sum_{i:\mu_i \leq
+\mu^*}} \frac{4 ln\>T}{\bigtriangleup_i}+8
+\]
+donde $\bigtriangleup_i = \mu^*-\mu_i$
+
+\subsection{Análisis de arrepentimiento independiente de la instancia}
+
+El teorema 1.3 da un límite superior en $\mathds{E}[R(T, \Theta)]$ que es logarítmico en $T$. Esto está en una forma
+óptima: recuerdo de la última conferencia que
+cualquier algoritmo razonable debe sufrir en $T$
+esperado lamento total, no importa qué instancia $\Theta$
+está dado. \\\\Sin embargo, tenga en cuenta que el
+teorema 1.3 depende de una instancia específica de
+brazos, parametrizada por $\bigtriangleup_1. . . \bigtriangleup_N$. Dichos
+límites se denominan ``dependientes de la instancia"
+o ``límites dependientes del problema". Este límite
+implica directamente una muy buena pelea en el peor
+de los casos: por ejemplo, con $\bigtriangleup_i = ln T / T$,
+entonces el límite es lineal en T, que es tan malo
+como el algoritmo $\epsilon$-greedy.\\\\ 
+Pero se puede aplicar un simple truco al Teorema 1.3 para obtener el siguiente arrepentimiento ``independiente de la instancia" (también conocido como ``problema independiente" o ``worst-case").
+
+$\textbf{Teorema 1.4.}$ Para todo $T \geq N$, el arrepentimiento total esperado logrado por el algoritmo UCB en la ronda $T$ es
+
+\[
+\mathds{E}[R(T)]=5\sqrt{NTlnT} + 8N
+\]
+\textit{Proof.} Solo para fines de análisis, divida los lanzamientos en dos grupos:
+\begin{enumerate}
+    \item El grupo 1 contiene brazos ``casi
+    óptimos" con $\bigtriangleup_i \textless
+    \sqrt{\frac{N}{T}ln \>T}$
+    
+    \item El grupo 2 contiene brazos con
+    $\bigtriangleup_i \geq \sqrt{\frac{N}{T}lnT}$
+    
+\end{enumerate}
+El arrepentimiento total es la suma de la pena de cada grupo. El remordimiento máximo total incurrido debido a los brazos de tracción en el Grupo 1 está limitado por
+\[
+\sum_{i \in Grupo 1} n_{i, T}\bigtriangleup_i \leq
+\left( \sqrt{\frac{N}{T}lnT}\right) \sum_{i \in Grupo 1} n_{i, T} \leq T \sqrt{\frac{N}{T}lnT}=\sqrt{NTlnT}
+\]
+donde se usó ese $\bigtriangleup_i \leq \frac{N}{T}lnT$ para todo $i$ en el grupo 1, y el trivial límite $\sum_{i}n_{i, T} \leq T$ en el número total de tirones. A continuación, aplicamos el Lema 1.2 en cada brazo del Grupo 2 para unir el pesar esperado por
+\[
+\sum_{i \in Grupo 2} \mathds{E}[n_{i, T}]\bigtriangleup \leq \sum_{i \in Grupo 2} \frac{4ln\>T}{\bigtriangleup_i} +8\bigtriangleup_i \leq \sum_{i \in Grupo 2} 4\sqrt{\frac{Tln\>T}{N}}+8 \leq 4\sqrt{NTln\>T}+8N
+\]
+donde en la primera desigualdad usamos eso para
+todo $i \in$ Grupo 2, $\sqrt{\frac{N}{T}ln\>T}\leq
+\bigtriangleup_i \leq 1$. Sumar las dos
+desigualdades da el resultado deseado.
+
+
+\end{document}
